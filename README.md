@@ -2,6 +2,9 @@
 
 **PharmaQueue** is a smart, desktop-based management system designed to streamline pharmacy operations. It helps pharmacists prioritize patients based on their medical status and manage the daily queue efficiently.
 
+<img width="400" alt="Screenshot 2026-06-26 181028" src="https://github.com/user-attachments/assets/f8011c2e-308a-41bf-af28-32f7422bb559" />
+
+
 ---
 
 ## 🌟 Key Features
