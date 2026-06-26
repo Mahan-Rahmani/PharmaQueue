@@ -30,8 +30,8 @@
 
 1. **Clone the repository:**
    ```bash
-   git clone [https://github.com/AminGhaznavi/PharmaQueue.git](https://github.com/AminGhaznavi/PharmaQueue.git)
-   cd PharmaQueue
+   git clone https://github.com/AminGhaznavi/PharmaQueue.git
+     cd PharmaQueue
      ```
 2. **Install dependencies:**
    ```bash
