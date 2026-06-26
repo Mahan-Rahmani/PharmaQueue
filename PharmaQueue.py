@@ -1,20 +1,12 @@
 import sqlite3
+import tkinter as tk
+from tkinter import messagebox
+import ttkbootstrap as tb
+from ttkbootstrap.constants import *
 
-print("Welcome to PharmaQueue")
-print('*' * 35, '\n')
-
-def get_priorities(status):
-    if status.lower() == 'emergency':
-        return 1
-    elif status.lower() == 'prescription':
-        return 2
-    else:
-        return 3
-
-# Connect to SQLite database
+# تنظیمات دیتابیس
 conn = sqlite3.connect("pharma_queue.db")
 cursor = conn.cursor()
-
 cursor.execute("""
 CREATE TABLE IF NOT EXISTS queue (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -25,73 +17,91 @@ CREATE TABLE IF NOT EXISTS queue (
 """)
 conn.commit()
 
-while True:
-    print('What do you want to do?\n\t1) Add a person to queue\n\t2) Show the list\n\t'
-          '3) Serve first in queue\n\t4) Search for a patient\n\t5) Exit')
-    try:
-        choice = int(input('Your choice: '))
-        if choice not in [1, 2, 3, 4, 5]:
-            print("❗ Invalid choice. Please select a number between 1 and 5.\n")
-            continue
-    except ValueError:
-        print("❗ Please enter a valid number.\n")
-        continue
+def get_priorities(status):
+    status = status.lower()
+    if status == 'emergency': return 1
+    elif status == 'prescription': return 2
+    else: return 3
 
-    if choice == 1:
-        name = input('Enter name: ')
-        age = int(input('Enter age: '))
-        status = input('Enter status (General or Emergency or Prescription): ')
-        cursor.execute("INSERT INTO queue (name, age, status) VALUES (?, ?, ?)", (name, age, status))
-        conn.commit()
-        print('✅ The person added to queue successfully.\n')
-        print('*' * 40, '\n')
+class PharmaApp(tb.Window):
+    def __init__(self):
+        super().__init__(themename="flatly")
+        self.title("PharmaQueue - مدیریت هوشمند")
+        self.geometry("600x650")
 
-    elif choice == 2:
-        cursor.execute("SELECT * FROM queue")
-        rows = cursor.fetchall()
-        if not rows:
-            print("❗ Queue is empty.\n")
-        else:
-            sorted_queue = sorted(rows, key=lambda person: get_priorities(person[3]))
-            for i, person in enumerate(sorted_queue):
-                print(f"{i + 1}. [ID: {person[0]}] Name: {person[1]}, Age: {person[2]}, Status: {person[3]}")
-            print()
-        print('*' * 40, '\n')
+        # عنوان
+        title_lbl = tb.Label(self, text="سامانه مدیریت صف داروخانه", font=("Arial", 20, "bold"), bootstyle="primary")
+        title_lbl.pack(pady=20)
 
-    elif choice == 3:
-        cursor.execute("SELECT * FROM queue")
-        rows = cursor.fetchall()
+        # پنل ورودی (اصلاح شده: استفاده از padx و pady به جای padding که باعث خطا می‌شد)
+        input_frame = tb.LabelFrame(self, text="اطلاعات بیمار")
+        input_frame.pack(fill=X, padx=30, pady=10) # فاصله از طرفین
 
-        if not rows:
-            print("❗ Queue is empty.\n")
-        else:
-            sorted_queue = sorted(rows, key=lambda person: get_priorities(person[3]))
-            served_person = sorted_queue[0]
+        # اضافه کردن ویجت‌ها به داخل فریم با پدینگ داخلی
+        tb.Label(input_frame, text="نام و نام خانوادگی:").grid(row=0, column=0, padx=10, pady=10)
+        self.name_entry = tb.Entry(input_frame, width=30)
+        self.name_entry.grid(row=0, column=1, padx=10, pady=10)
 
-            print(f"✅ Served: {served_person[1]} | Age: {served_person[2]} | Status: {served_person[3]}")
+        tb.Label(input_frame, text="سن:").grid(row=1, column=0, padx=10, pady=10)
+        self.age_entry = tb.Entry(input_frame, width=30)
+        self.age_entry.grid(row=1, column=1, padx=10, pady=10)
 
+        tb.Label(input_frame, text="وضعیت:").grid(row=2, column=0, padx=10, pady=10)
+        self.status_combo = tb.Combobox(input_frame, values=["General", "Emergency", "Prescription"], state="readonly", width=28)
+        self.status_combo.current(0)
+        self.status_combo.grid(row=2, column=1, padx=10, pady=10)
 
-            patient_id = served_person[0]
-            cursor.execute("DELETE FROM queue WHERE id = ?", (patient_id,))
+        # دکمه‌ها
+        btn_frame = tb.Frame(self)
+        btn_frame.pack(pady=10)
+
+        tb.Button(btn_frame, text="افزودن به صف", command=self.add_patient, bootstyle="success", width=15).grid(row=0, column=0, padx=5)
+        tb.Button(btn_frame, text="مشاهده لیست", command=self.show_list, bootstyle="info", width=15).grid(row=0, column=1, padx=5)
+        tb.Button(btn_frame, text="سرویس دهی", command=self.serve_patient, bootstyle="warning", width=15).grid(row=1, column=0, pady=10, padx=5)
+        tb.Button(btn_frame, text="جستجو", command=self.search_patient, bootstyle="secondary", width=15).grid(row=1, column=1, pady=10, padx=5)
+
+        # جدول نمایش
+        self.tree = tb.Treeview(self, columns=("ID", "Name", "Age", "Status"), show='headings', bootstyle="primary")
+        self.tree.heading("ID", text="ID")
+        self.tree.heading("Name", text="نام")
+        self.tree.heading("Age", text="سن")
+        self.tree.heading("Status", text="وضعیت")
+        self.tree.column("ID", width=50)
+        self.tree.pack(fill=BOTH, expand=True, padx=20, pady=20)
+
+    def add_patient(self):
+        try:
+            cursor.execute("INSERT INTO queue (name, age, status) VALUES (?, ?, ?)", 
+                           (self.name_entry.get(), int(self.age_entry.get()), self.status_combo.get()))
             conn.commit()
-            print()
-        print('*' * 40, '\n')
+            messagebox.showinfo("موفق", "بیمار با موفقیت اضافه شد")
+        except:
+            messagebox.showerror("خطا", "لطفاً مقادیر را صحیح وارد کنید")
 
-    elif choice == 4:
-        name = input("Enter the name to search: ")
+    def show_list(self):
+        for i in self.tree.get_children(): self.tree.delete(i)
+        cursor.execute("SELECT * FROM queue")
+        rows = sorted(cursor.fetchall(), key=lambda p: get_priorities(p[3]))
+        for row in rows: self.tree.insert("", END, values=row)
+
+    def serve_patient(self):
+        cursor.execute("SELECT * FROM queue")
+        rows = sorted(cursor.fetchall(), key=lambda p: get_priorities(p[3]))
+        if rows:
+            cursor.execute("DELETE FROM queue WHERE id = ?", (rows[0][0],))
+            conn.commit()
+            messagebox.showinfo("سرویس دهی", f"در حال رسیدگی به: {rows[0][1]}")
+            self.show_list()
+        else:
+            messagebox.showwarning("خالی", "صف خالی است")
+
+    def search_patient(self):
+        name = self.name_entry.get()
         cursor.execute("SELECT * FROM queue WHERE LOWER(name) = LOWER(?)", (name,))
         results = cursor.fetchall()
+        for i in self.tree.get_children(): self.tree.delete(i)
+        for row in results: self.tree.insert("", END, values=row)
 
-        if results:
-            print(f"\n🔍 Found {len(results)} patient(s) with name '{name}':")
-            for person in results:
-                print(f"[ID: {person[0]}] Name: {person[1]}, Age: {person[2]}, Status: {person[3]}")
-            print()
-        else:
-            print("❗ No patient found with that name.\n")
-        print('*' * 40, '\n')
-
-    elif choice == 5:
-        print('Thank you for using PharmaQueue')
-        conn.close()
-        break
+if __name__ == "__main__":
+    app = PharmaApp()
+    app.mainloop()
